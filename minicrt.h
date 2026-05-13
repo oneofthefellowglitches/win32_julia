@@ -1,7 +1,7 @@
 #ifndef MINICRT_H
 #define MINICRT_H
 
-#include "compiler.h"
+#include "system.h"
 
 /* -------------------------------------------------------------------------
    1. FUNCTION PROTOTYPES
