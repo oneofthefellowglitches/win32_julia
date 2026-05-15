@@ -29,27 +29,14 @@ TODO: switch from GDI to DXGI
 
 ❌ Not compatible with Vulkan/modern GPU paths
 
-Window ownership
-
-Backbuffer presentation
-
-HUD drawing (one to keep)
+Window ownership | Backbuffer presentation | HUD drawing (one to keep)
 */
 
-/**DXGI
-DXGI:
 
-owns backbuffers (GPU textures)
 
-handles vsync
+/**DXGI:
 
-handles tearing
-
-handles fullscreen
-
-handles resizing
-
-is required for D3D11 / D3D12 / Vulkan-on-Windows
+owns backbuffers (GPU textures) | handles vsync | handles tearing | handles fullscreen | handles resizing | is required for D3D11 / D3D12 / Vulkan-on-Windows
 
 ✅ Tear-free
 
