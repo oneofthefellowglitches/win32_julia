@@ -1,16 +1,6 @@
 :: build_win32_heap_threadctx_503.bat
 @echo off
 call loadenv.bat
-:: echo %sdl2_lib_path_x86%
-:: echo %sdl2_lib_path_x64%
-:: echo %sdl2_include_path%
-:: echo %msvcl_build_path%
-:: echo %msvcl_libs%
-:: echo %opencl_lib_path_x64%
-:: echo %tcc_winapi_include_path%
-:: echo %tcc_lib_path%
-:: echo %llvm_path%
-
 set PATH=%llvm_path%;%PATH%
 
 if not exist build\clang_x64 mkdir build\clang_x64 
@@ -79,6 +69,16 @@ icx-cl -target x86_64-pc-windows-msvc ^
   /SUBSYSTEM:WINDOWS ^
   /OUT:win32_heap_threadctx_503.exe
 popd
+
+:: echo %sdl2_lib_path_x86%
+:: echo %sdl2_lib_path_x64%
+:: echo %sdl2_include_path%
+:: echo %msvcl_build_path%
+:: echo %msvcl_libs%
+:: echo %opencl_lib_path_x64%
+:: echo %tcc_winapi_include_path%
+:: echo %tcc_lib_path%
+:: echo %llvm_path%
 
 pause
 ::/permissive-  Standard conformance mode (Turn this on instead of /Za). It is much smarter and won't break windows.h.
