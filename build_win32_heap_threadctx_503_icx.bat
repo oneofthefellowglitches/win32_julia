@@ -2,8 +2,6 @@
 @echo off
 call loadenv.bat
 
-set PATH=%llvm_path%;%PATH%
-
 call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64 vs2022
 if not exist build\intelcx_x64 mkdir build\intelcx_x64 
 pushd build\intelcx_x64
