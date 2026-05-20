@@ -1,131 +1,35 @@
-name: Build Julia Set Animation
+name: Build win32_julia
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ "master", "main" ]
   pull_request:
-    branches: [main, develop]
-  workflow_dispatch:
+    branches: [ "master", "main" ]
 
 jobs:
-  build-matrix:
+  build:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        compiler: [clang, msvc]
-        include:
-          - compiler: clang
-            build_dir: build/clang_x64
-            artifact_name: win32_julia_clang
-            artifact_path: build/clang_x64/win32_heap_threadctx_503.exe
-          - compiler: msvc
-            build_dir: build/msvcl_x64
-            artifact_name: win32_julia_msvc
-            artifact_path: build/msvcl_x64/win32_heap_threadctx_503.exe
-      fail-fast: false
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4   # Node 20, no deprecation warnings
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up build environment (MSVC + OpenCL)
-        shell: powershell
-        run: |
-          # ------------------------------------------------------------
-          # 1. Locate Visual Studio 2022 (always present on windows-latest)
-          # ------------------------------------------------------------
-          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-                     -latest -property installationPath
-          if (-not $vsPath) {
-              Write-Error "Visual Studio not found"
-              exit 1
-          }
+      # Sets up the MSVC environment for x64 compilation
+      - name: Set up Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-          # Launch vcvars to set up command‑line tools for x64
-          cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvars64.bat`" > nul && set" | ForEach-Object {
-              if ($_ -match "^(.*?)=(.*)$") {
-                  Set-Item -Force -Path "Env:\$($matches[1])" -Value $matches[2]
-              }
-          }
-
-          # ------------------------------------------------------------
-          # 2. Find OpenCL headers & libraries from Windows SDK
-          # ------------------------------------------------------------
-          $sdkRoot  = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots").KitsRoot10
-          $sdkVersions = Get-ChildItem "$sdkRoot\Include\" -Directory |
-                         Where-Object { $_.Name -match '^10\.' } |
-                         Sort-Object { [version]($_.Name) } -Descending
-          $latestSdk = $sdkVersions | Select-Object -First 1
-          if (-not $latestSdk) {
-              Write-Error "No Windows SDK found"
-              exit 1
-          }
-
-          $oclInclude = Join-Path (Join-Path $sdkRoot "Include") (Join-Path $latestSdk.Name "shared")
-          $oclLib     = Join-Path (Join-Path $sdkRoot "Lib") (Join-Path $latestSdk.Name "um\x64")
-
-          # Export these as environment variables for later steps
-          "OPENCL_INCLUDE=$oclInclude" >> $env:GITHUB_ENV
-          "OPENCL_LIB=$oclLib"         >> $env:GITHUB_ENV
-
-          # ------------------------------------------------------------
-          # 3. Verify that clang-cl is on PATH (it is after vcvars)
-          # ------------------------------------------------------------
-          if ("${{ matrix.compiler }}" -eq "clang") {
-              if (-not (Get-Command clang-cl -ErrorAction SilentlyContinue)) {
-                  Write-Error "clang-cl not found – is Clang component installed in VS?"
-                  exit 1
-              }
-          }
-
-          Write-Host "Environment ready. OPENCL_INCLUDE=$oclInclude"
-          Write-Host "OPENCL_LIB=$oclLib"
-
-      - name: Create build directory
+      # Runs your included .bat file
+      - name: Run build script
         shell: cmd
-        run: if not exist ${{ matrix.build_dir }} mkdir ${{ matrix.build_dir }}
+        run: build.bat
 
-      - name: Build with ${{ matrix.compiler }}
-        shell: cmd
-        run: |
-          cd ${{ matrix.build_dir }}
-          if "${{ matrix.compiler }}"=="clang" (
-            clang-cl -target x86_64-pc-windows-msvc ^
-              /I"%OPENCL_INCLUDE%" ^
-              /O2 /GS- /arch:AVX2 /W4 ^
-              -Xclang -fno-builtin-memcpy ^
-              -Xclang -fno-builtin-memset ^
-              -Xclang -std=c99 ^
-              /Tc ..\..\win32_heap_threadctx_503.c ^
-              /link ^
-              /LIBPATH:"%OPENCL_LIB%" ^
-              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
-              /MACHINE:X64 /NODEFAULTLIB ^
-              /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
-              /OUT:win32_heap_threadctx_503.exe
-          ) else if "${{ matrix.compiler }}"=="msvc" (
-            cl ^
-              /I"%OPENCL_INCLUDE%" ^
-              /O2 /GS- /arch:AVX2 /W4 /permissive- ^
-              /Tc ..\..\win32_heap_threadctx_503.c ^
-              /link ^
-              /LIBPATH:"%OPENCL_LIB%" ^
-              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
-              /MACHINE:X64 /NODEFAULTLIB ^
-              /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
-              /OUT:win32_heap_threadctx_503.exe
-          )
-
-      - name: Verify artifact exists
-        shell: powershell
-        run: |
-          if (-not (Test-Path "${{ matrix.artifact_path }}")) {
-            Write-Error "Build output not found at ${{ matrix.artifact_path }}"
-            exit 1
-          }
-
-      - name: Upload artifact
+      # Optional: Upload the resulting .exe or artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_path }}
+          name: win32_julia_x64
+          path: |
+            *.exe
+            *.dll
