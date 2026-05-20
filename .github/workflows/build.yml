@@ -28,45 +28,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Install OpenCL using vcpkg (a common package manager on Windows)
-      - name: Install OpenCL with vcpkg
-        uses: lukka/run-vcpkg@v11
+      # Setup MSVC environment (sets Windows SDK variables for both compilers)
+      - name: Setup MSVC (for SDK paths)
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          vcpkgArguments: 'opencl'
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgGitCommitId: 'a42af01b84c8c1c3b2f9e1d5a45f2b21845b7c83' # Pin a specific vcpkg version for stability
+          arch: x64
 
-      # Set environment variables dynamically from vcpkg installation
+      # Set OpenCL paths using the Windows SDK (headers + ICD loader library)
       - name: Set OpenCL environment variables
         shell: powershell
         run: |
-          $vcpkgDir = "${{ github.workspace }}/vcpkg"
-          $openclRoot = Get-ChildItem -Path "$vcpkgDir/installed/x64-windows" -Directory | Where-Object { $_.Name -like 'opencl*' } | Select-Object -First 1
-          if ($openclRoot) {
-            echo "OPENCL_INCLUDE_PATH=$openclRoot/include" >> $env:GITHUB_ENV
-            echo "OPENCL_LIB_PATH_X64=$openclRoot/lib" >> $env:GITHUB_ENV
-          } else {
-            Write-Warning "OpenCL not found, build may lack GPU support"
-            # Set fallback paths to avoid immediate error; build will proceed without OpenCL
-            echo "OPENCL_INCLUDE_PATH=C:/Nonexistent" >> $env:GITHUB_ENV
-            echo "OPENCL_LIB_PATH_X64=C:/Nonexistent" >> $env:GITHUB_ENV
-          }
+          # Windows SDK includes OpenCL headers and the ICD loader library
+          $sdkDir = $env:WindowsSdkDir
+          $sdkVer = $env:WindowsSDKVersion -replace '\\$'   # remove trailing backslash if present
+          $oclInclude = Join-Path $sdkDir "Include" $sdkVer "shared"
+          $oclLib     = Join-Path $sdkDir "Lib"     $sdkVer "um\x64"
+          echo "OPENCL_INCLUDE_PATH=$oclInclude" >> $env:GITHUB_ENV
+          echo "OPENCL_LIB_PATH_X64=$oclLib"     >> $env:GITHUB_ENV
 
       - name: Setup Clang
         if: matrix.compiler == 'clang'
-        # Pin a specific version to avoid unexpected breakages
         uses: egor-tensin/setup-clang@v1
         with:
           version: 18
           platform: x64
-
-      - name: Setup MSVC
-        if: matrix.compiler == 'msvc'
-        # Use the official Microsoft action or setup directly for better reliability
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-          # spectre: true # Remove if not strictly needed
 
       - name: Create build directory
         shell: cmd
@@ -84,7 +69,7 @@ jobs:
               -Xclang -fno-builtin-memcpy ^
               -Xclang -fno-builtin-memset ^
               -Xclang -std=c99 ^
-              /Tc ...\..\win32_heap_threadctx_503.c ^
+              /Tc ..\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB_PATH_X64%" ^
               OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
@@ -95,7 +80,7 @@ jobs:
             cl ^
               /I"%OPENCL_INCLUDE_PATH%" ^
               /O2 /GS- /arch:AVX2 /W4 /permissive- ^
-              /Tc ...\..\win32_heap_threadctx_503.c ^
+              /Tc ..\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB_PATH_X64%" ^
               OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
@@ -104,4 +89,12 @@ jobs:
               /OUT:win32_heap_threadctx_503.exe
           )
 
-      # The rest of the steps (Verify, Upload artifacts, etc.) can remain the same.
+      - name: Verify executable
+        shell: cmd
+        run: dir ${{ matrix.build_dir }}\*.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_dir }}
