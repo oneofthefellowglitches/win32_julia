@@ -71,7 +71,7 @@ jobs:
 
       - name: Setup Intel C++ Compiler
         if: matrix.compiler == 'icx'
-        uses: oneapi-src/setup-oneapi@v2
+        uses: intel-actions/setup-oneapi@v1
         with:
           components: |
             intel-oneapi-compiler-dpcpp-cpp
