@@ -42,6 +42,12 @@ jobs:
           }
           $oclInclude = Join-Path (Join-Path $sdkRoot "Include") (Join-Path $latestSdk.Name "shared")
           $oclLib     = Join-Path (Join-Path $sdkRoot "Lib") (Join-Path $latestSdk.Name "um\x64")
+          # Verify the ICD loader library exists
+          $oclLibFile = Join-Path $oclLib "opencl32.lib"
+          if (-not (Test-Path $oclLibFile)) {
+              Write-Error "opencl32.lib not found in $oclLib"
+              exit 1
+          }
           "OPENCL_INCLUDE=$oclInclude" | Out-File -Append -FilePath $env:GITHUB_ENV
           "OPENCL_LIB=$oclLib"         | Out-File -Append -FilePath $env:GITHUB_ENV
           Write-Host "OPENCL_INCLUDE=$oclInclude"
@@ -50,7 +56,7 @@ jobs:
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
         run: |
-          call "%VS170COMNTOOLS%\..\..\VC\Auxiliary\Build\vcvars64.bat"
+          call "%VS170COMNTOOLS%\..\..\VC\Auxiliary\Build\vcvars64.bat" 2>nul
           if not exist "${{ matrix.build_dir }}" mkdir "${{ matrix.build_dir }}"
           cd /d "${{ matrix.build_dir }}"
           if "${{ matrix.compiler }}"=="clang" (
@@ -63,7 +69,7 @@ jobs:
               /Tc ..\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB%" ^
-              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
+              opencl32.lib kernel32.lib user32.lib gdi32.lib ^
               /MACHINE:X64 /NODEFAULTLIB ^
               /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
               /OUT:win32_heap_threadctx_503.exe
@@ -74,7 +80,7 @@ jobs:
               /Tc ..\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB%" ^
-              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
+              opencl32.lib kernel32.lib user32.lib gdi32.lib ^
               /MACHINE:X64 /NODEFAULTLIB ^
               /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
               /OUT:win32_heap_threadctx_503.exe
