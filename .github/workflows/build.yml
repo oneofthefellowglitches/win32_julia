@@ -28,30 +28,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Locate Windows SDK and set OpenCL paths
+      - name: Install OpenCL via vcpkg
         shell: powershell
         run: |
-          $sdkRoot = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots").KitsRoot10
-          $sdkVersions = Get-ChildItem "$sdkRoot\Include\" -Directory |
-                         Where-Object { $_.Name -match '^10\.' } |
-                         Sort-Object { [version]($_.Name) } -Descending
-          $latestSdk = $sdkVersions | Select-Object -First 1
-          if (-not $latestSdk) {
-              Write-Error "No Windows SDK found"
+          $vcpkgRoot = "$env:RUNNER_TEMP\vcpkg"
+          # Only clone if not already cached (speed up future runs)
+          if (-not (Test-Path $vcpkgRoot)) {
+              git clone -q https://github.com/microsoft/vcpkg.git $vcpkgRoot
+          }
+          pushd $vcpkgRoot
+          .\bootstrap-vcpkg.bat -disableMetrics
+          .\vcpkg install opencl --triplet x64-windows --clean-after-build
+          popd
+
+          $openclRoot = "$vcpkgRoot\installed\x64-windows"
+          if (-not (Test-Path "$openclRoot\include\CL\cl.h")) {
+              Write-Error "OpenCL headers not found after vcpkg install"
               exit 1
           }
-          $oclInclude = Join-Path (Join-Path $sdkRoot "Include") (Join-Path $latestSdk.Name "shared")
-          $oclLib     = Join-Path (Join-Path $sdkRoot "Lib") (Join-Path $latestSdk.Name "um\x64")
-          # Verify the ICD loader library exists
-          $oclLibFile = Join-Path $oclLib "opencl32.lib"
-          if (-not (Test-Path $oclLibFile)) {
-              Write-Error "opencl32.lib not found in $oclLib"
+          if (-not (Test-Path "$openclRoot\lib\OpenCL.lib")) {
+              Write-Error "OpenCL.lib not found after vcpkg install"
               exit 1
           }
-          "OPENCL_INCLUDE=$oclInclude" | Out-File -Append -FilePath $env:GITHUB_ENV
-          "OPENCL_LIB=$oclLib"         | Out-File -Append -FilePath $env:GITHUB_ENV
-          Write-Host "OPENCL_INCLUDE=$oclInclude"
-          Write-Host "OPENCL_LIB=$oclLib"
+          # Export environment variables for build step
+          "OPENCL_INCLUDE=$openclRoot\include" | Out-File -Append -FilePath $env:GITHUB_ENV
+          "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append -FilePath $env:GITHUB_ENV
+          Write-Host "OpenCL ready: $openclRoot"
 
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
@@ -69,7 +71,7 @@ jobs:
               /Tc ..\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB%" ^
-              opencl32.lib kernel32.lib user32.lib gdi32.lib ^
+              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
               /MACHINE:X64 /NODEFAULTLIB ^
               /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
               /OUT:win32_heap_threadctx_503.exe
@@ -80,7 +82,7 @@ jobs:
               /Tc ..\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB%" ^
-              opencl32.lib kernel32.lib user32.lib gdi32.lib ^
+              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
               /MACHINE:X64 /NODEFAULTLIB ^
               /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
               /OUT:win32_heap_threadctx_503.exe
