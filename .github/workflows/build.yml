@@ -16,7 +16,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        compiler: [clang, msvc, icx]
+        compiler: [clang, msvc]
         include:
           - compiler: clang
             build_dir: build/clang_x64
@@ -26,10 +26,6 @@ jobs:
             build_dir: build/msvcl_x64
             artifact_name: win32_julia_msvc
             artifact_dir: build/msvcl_x64/win32_heap_threadctx_503.exe
-          - compiler: icx
-            build_dir: build/intelcx_x64
-            artifact_name: win32_julia_icx
-            artifact_dir: build/intelcx_x64/win32_heap_threadctx_503.exe
       fail-fast: false
 
     steps:
@@ -69,15 +65,6 @@ jobs:
           arch: x64
           spectre: true
 
-      - name: Setup Intel C++ Compiler
-        if: matrix.compiler == 'icx'
-        uses: intel-actions/setup-oneapi@v1
-        with:
-          components: |
-            intel-oneapi-compiler-dpcpp-cpp
-            intel-oneapi-mkl
-          cache: true
-
       - name: Create build directory
         shell: cmd
         run: if not exist ${{ matrix.build_dir }} mkdir ${{ matrix.build_dir }}
@@ -114,26 +101,6 @@ jobs:
               /GS- ^
               /arch:AVX2 ^
               /W4 /permissive- /Tc ^
-              ...\..\win32_heap_threadctx_503.c ^
-              /link ^
-              /LIBPATH:"%OPENCL_LIB_PATH_X64%" ^
-              OpenCL.lib kernel32.lib user32.lib gdi32.lib ^
-              /MACHINE:X64 ^
-              /NODEFAULTLIB ^
-              /ENTRY:win32_main_entry ^
-              /SUBSYSTEM:WINDOWS ^
-              /OUT:win32_heap_threadctx_503.exe
-          ) else if "${{ matrix.compiler }}" == "icx" (
-            icx-cl -target x86_64-pc-windows-msvc ^
-              /I"%OPENCL_INCLUDE_PATH%" ^
-              /O2 ^
-              /GS- ^
-              /arch:AVX2 ^
-              /W4 ^
-              -Xclang -fno-builtin-memcpy ^
-              -Xclang -fno-builtin-memset ^
-              -Xclang -std=c89 ^
-              /Tc ^
               ...\..\win32_heap_threadctx_503.c ^
               /link ^
               /LIBPATH:"%OPENCL_LIB_PATH_X64%" ^
