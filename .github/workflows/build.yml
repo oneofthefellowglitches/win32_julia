@@ -32,7 +32,6 @@ jobs:
         shell: powershell
         run: |
           $vcpkgRoot = "$env:RUNNER_TEMP\vcpkg"
-          # Only clone if not already cached (speed up future runs)
           if (-not (Test-Path $vcpkgRoot)) {
               git clone -q https://github.com/microsoft/vcpkg.git $vcpkgRoot
           }
@@ -43,25 +42,39 @@ jobs:
 
           $openclRoot = "$vcpkgRoot\installed\x64-windows"
           if (-not (Test-Path "$openclRoot\include\CL\cl.h")) {
-              Write-Error "OpenCL headers not found after vcpkg install"
+              Write-Error "OpenCL headers not found"
               exit 1
           }
           if (-not (Test-Path "$openclRoot\lib\OpenCL.lib")) {
-              Write-Error "OpenCL.lib not found after vcpkg install"
+              Write-Error "OpenCL.lib not found"
               exit 1
           }
-          # Export environment variables for build step
-          "OPENCL_INCLUDE=$openclRoot\include" | Out-File -Append -FilePath $env:GITHUB_ENV
-          "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append -FilePath $env:GITHUB_ENV
-          Write-Host "OpenCL ready: $openclRoot"
+          "OPENCL_INCLUDE=$openclRoot\include" | Out-File -Append $env:GITHUB_ENV
+          "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append $env:GITHUB_ENV
+          Write-Host "OpenCL installed: $openclRoot"
 
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
         run: |
-          call "%VS170COMNTOOLS%\..\..\VC\Auxiliary\Build\vcvars64.bat" 2>nul
+          REM Locate Visual Studio 2022 using vswhere
+          FOR /F "tokens=*" %%i IN ('"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath') DO SET VS_PATH=%%i
+          IF NOT DEFINED VS_PATH (
+              echo ERROR: Visual Studio not found
+              exit /b 1
+          )
+          CALL "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+          IF ERRORLEVEL 1 (
+              echo ERROR: vcvars64.bat failed
+              exit /b 1
+          )
+          REM Verify compiler
+          where cl >nul 2>&1 || (echo ERROR: cl not found & exit /b 1)
+          where clang-cl >nul 2>&1 || echo NOTE: clang-cl not on PATH (MSVC build only)
+
           if not exist "${{ matrix.build_dir }}" mkdir "${{ matrix.build_dir }}"
           cd /d "${{ matrix.build_dir }}"
-          if "${{ matrix.compiler }}"=="clang" (
+
+          IF "${{ matrix.compiler }}"=="clang" (
             clang-cl -target x86_64-pc-windows-msvc ^
               /I"%OPENCL_INCLUDE%" ^
               /O2 /GS- /arch:AVX2 /W4 ^
@@ -75,7 +88,7 @@ jobs:
               /MACHINE:X64 /NODEFAULTLIB ^
               /ENTRY:win32_main_entry /SUBSYSTEM:WINDOWS ^
               /OUT:win32_heap_threadctx_503.exe
-          ) else if "${{ matrix.compiler }}"=="msvc" (
+          ) ELSE IF "${{ matrix.compiler }}"=="msvc" (
             cl ^
               /I"%OPENCL_INCLUDE%" ^
               /O2 /GS- /arch:AVX2 /W4 /permissive- ^
