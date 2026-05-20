@@ -15,13 +15,13 @@ jobs:
         compiler: [clang, msvc]
         include:
           - compiler: clang
-            build_dir: build/clang_x64
+            build_dir: build\clang_x64
             artifact_name: win32_julia_clang
-            artifact_path: build/clang_x64/win32_heap_threadctx_503.exe
+            artifact_path: build\clang_x64\win32_heap_threadctx_503.exe
           - compiler: msvc
-            build_dir: build/msvcl_x64
+            build_dir: build\msvcl_x64
             artifact_name: win32_julia_msvc
-            artifact_path: build/msvcl_x64/win32_heap_threadctx_503.exe
+            artifact_path: build\msvcl_x64\win32_heap_threadctx_503.exe
       fail-fast: false
 
     steps:
@@ -47,15 +47,12 @@ jobs:
           Write-Host "OPENCL_INCLUDE=$oclInclude"
           Write-Host "OPENCL_LIB=$oclLib"
 
-      - name: Create build directory
-        shell: cmd
-        run: if not exist ${{ matrix.build_dir }} mkdir ${{ matrix.build_dir }}
-
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
         run: |
           call "%VS170COMNTOOLS%\..\..\VC\Auxiliary\Build\vcvars64.bat"
-          cd ${{ matrix.build_dir }}
+          if not exist "${{ matrix.build_dir }}" mkdir "${{ matrix.build_dir }}"
+          cd /d "${{ matrix.build_dir }}"
           if "${{ matrix.compiler }}"=="clang" (
             clang-cl -target x86_64-pc-windows-msvc ^
               /I"%OPENCL_INCLUDE%" ^
