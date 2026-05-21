@@ -57,20 +57,31 @@ jobs:
           "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append $env:GITHUB_ENV
           Write-Host "OpenCL installed: $openclRoot"
 
-      # ----- Install Intel compiler via winget (with source update) -----
+      # ----- Install Intel compiler via direct download (winget replaced) -----
       - name: Install Intel oneAPI DPC++/C++ Compiler
         if: matrix.compiler == 'icx'
         shell: powershell
         run: |
-          Write-Host "Updating winget sources..."
-          winget source update --name winget
-          Write-Host "Installing Intel oneAPI DPC++/C++ Compiler..."
-          winget install --id Intel.oneAPI.DpcppCppCompiler `
-            --source winget `
-            --accept-source-agreements `
-            --accept-package-agreements `
-            --silent
-          Write-Host "Intel compiler installation completed."
+          Write-Host "Downloading Intel oneAPI DPC++/C++ Compiler installer..."
+          $installerUrl = "https://registrationcenter-download.intel.com/akdlm/irc_nas/19526/w_dpcpp-cpp-compiler_p_2024.2.1.15_offline.exe"
+          $installerPath = "$env:RUNNER_TEMP\intel_oneapi_dpcpp.exe"
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
+
+          Write-Host "Installing Intel oneAPI DPC++/C++ Compiler (silent)..."
+          # Silent install with only the compiler component
+          Start-Process -FilePath $installerPath -ArgumentList `
+            "--silent", `
+            "--eula=accept", `
+            "--components=intel.oneapi.win.dpcpp-compiler"
+          -Wait -NoNewWindow
+
+          # Verify installation path
+          $installedPath = "C:\Program Files (x86)\Intel\oneAPI\compiler\latest"
+          if (-not (Test-Path "$installedPath\bin\icx-cl.exe")) {
+              Write-Error "Intel compiler installation failed – icx-cl.exe not found"
+              exit 1
+          }
+          Write-Host "Intel compiler installed successfully."
 
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
@@ -87,7 +98,7 @@ jobs:
               exit /b 1
           )
 
-          REM For Intel compiler, also activate oneAPI environment
+          REM For Intel compiler, activate oneAPI environment
           IF "${{ matrix.compiler }}"=="icx" (
               CALL "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" --force
               IF ERRORLEVEL 1 (
