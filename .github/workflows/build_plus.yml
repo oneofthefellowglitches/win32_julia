@@ -57,11 +57,13 @@ jobs:
           "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append $env:GITHUB_ENV
           Write-Host "OpenCL installed: $openclRoot"
 
-      # ----- Install Intel compiler via winget (correct ID) -----
+      # ----- Install Intel compiler via winget (with source update) -----
       - name: Install Intel oneAPI DPC++/C++ Compiler
         if: matrix.compiler == 'icx'
         shell: powershell
         run: |
+          Write-Host "Updating winget sources..."
+          winget source update --name winget
           Write-Host "Installing Intel oneAPI DPC++/C++ Compiler..."
           winget install --id Intel.oneAPI.DpcppCppCompiler `
             --source winget `
