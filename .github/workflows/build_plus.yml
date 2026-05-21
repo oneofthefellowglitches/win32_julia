@@ -1,4 +1,4 @@
-name: Build Julia Set Animation ICX
+name: Build Julia Set Animation
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        compiler: [clang, msvc, icx]            # ← Intel added
+        compiler: [clang, msvc, icx]
         include:
           - compiler: clang
             build_dir: build\clang_x64
@@ -22,7 +22,7 @@ jobs:
             build_dir: build\msvcl_x64
             artifact_name: win32_julia_msvc
             artifact_path: build\msvcl_x64\win32_heap_threadctx_503.exe
-          - compiler: icx                        # ← new entry
+          - compiler: icx
             build_dir: build\icx_x64
             artifact_name: win32_julia_icx
             artifact_path: build\icx_x64\win32_heap_threadctx_503.exe
@@ -57,19 +57,17 @@ jobs:
           "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append $env:GITHUB_ENV
           Write-Host "OpenCL installed: $openclRoot"
 
-      # ------ Intel Compiler setup (only for icx) ------
+      # ----- Intel Compiler setup (only for icx) -----
       - name: Install Intel oneAPI DPC++/C++ Compiler
         if: matrix.compiler == 'icx'
-        uses: intel/actions-setup-intel@v1
+        uses: intel/actions-setup-oneapi@v1          # Corrected action name
         with:
           components: 'intel-oneapi-compiler-dpcpp-cpp'
 
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
         run: |
-          REM --------------------------------------------------------
-          REM Set up Visual Studio environment (needed for all compilers)
-          REM --------------------------------------------------------
+          REM Locate Visual Studio and set up MSVC environment
           FOR /F "tokens=*" %%i IN ('"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath') DO SET VS_PATH=%%i
           IF NOT DEFINED VS_PATH (
               echo ERROR: Visual Studio not found
@@ -81,25 +79,19 @@ jobs:
               exit /b 1
           )
 
-          REM --------------------------------------------------------
-          REM For Intel compiler: also activate oneAPI environment
-          REM --------------------------------------------------------
+          REM For Intel compiler, also activate oneAPI environment
           IF "${{ matrix.compiler }}"=="icx" (
               CALL "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" --force
               IF ERRORLEVEL 1 (
                   echo ERROR: Intel oneAPI environment setup failed
                   exit /b 1
               )
-              REM Verify icx-cl is available
               where icx-cl >nul 2>&1 || (echo ERROR: icx-cl not found & exit /b 1)
           ) ELSE (
-              REM Verify cl is available for MSVC/Clang builds
               where cl >nul 2>&1 || (echo ERROR: cl not found & exit /b 1)
           )
 
-          REM --------------------------------------------------------
-          REM Build directory and compilation
-          REM --------------------------------------------------------
+          REM Create build directory and compile
           if not exist "${{ matrix.build_dir }}" mkdir "${{ matrix.build_dir }}"
           cd /d "${{ matrix.build_dir }}"
 
