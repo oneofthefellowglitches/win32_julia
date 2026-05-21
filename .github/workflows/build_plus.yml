@@ -57,31 +57,31 @@ jobs:
           "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append $env:GITHUB_ENV
           Write-Host "OpenCL installed: $openclRoot"
 
-      # ----- Install Intel compiler via direct download (winget replaced) -----
+      # ⬇️⬇️⬇️ THIS IS THE CORRECTED STEP ⬇️⬇️⬇️
       - name: Install Intel oneAPI DPC++/C++ Compiler
         if: matrix.compiler == 'icx'
         shell: powershell
         run: |
-          Write-Host "Downloading Intel oneAPI DPC++/C++ Compiler installer..."
+          Write-Host "Downloading Intel oneAPI DPC++/C++ Compiler offline installer..."
           $installerUrl = "https://registrationcenter-download.intel.com/akdlm/irc_nas/19526/w_dpcpp-cpp-compiler_p_2024.2.1.15_offline.exe"
           $installerPath = "$env:RUNNER_TEMP\intel_oneapi_dpcpp.exe"
           Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
 
           Write-Host "Installing Intel oneAPI DPC++/C++ Compiler (silent)..."
-          # Silent install with only the compiler component
           Start-Process -FilePath $installerPath -ArgumentList `
-            "--silent", `
-            "--eula=accept", `
+            "--silent",
+            "--eula=accept",
             "--components=intel.oneapi.win.dpcpp-compiler"
           -Wait -NoNewWindow
 
-          # Verify installation path
-          $installedPath = "C:\Program Files (x86)\Intel\oneAPI\compiler\latest"
-          if (-not (Test-Path "$installedPath\bin\icx-cl.exe")) {
+          # Verify that the compiler executable exists
+          $installedExe = "C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin\icx-cl.exe"
+          if (-not (Test-Path $installedExe)) {
               Write-Error "Intel compiler installation failed – icx-cl.exe not found"
               exit 1
           }
           Write-Host "Intel compiler installed successfully."
+      # ⬆️⬆️⬆️ END OF CORRECTED STEP ⬆️⬆️⬆️
 
       - name: Build with ${{ matrix.compiler }}
         shell: cmd
