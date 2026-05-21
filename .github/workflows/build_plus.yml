@@ -57,18 +57,17 @@ jobs:
           "OPENCL_LIB=$openclRoot\lib"         | Out-File -Append $env:GITHUB_ENV
           Write-Host "OpenCL installed: $openclRoot"
 
-      # ----- Install Intel compiler via winget (only for icx) -----
-      - name: Install Intel oneAPI DPC++/C++ Compiler via winget
+      # ----- Install Intel compiler via winget (correct ID) -----
+      - name: Install Intel oneAPI DPC++/C++ Compiler
         if: matrix.compiler == 'icx'
         shell: powershell
         run: |
           Write-Host "Installing Intel oneAPI DPC++/C++ Compiler..."
-          winget install --id Intel.oneAPI.DPCPP-CPP.Compiler `
+          winget install --id Intel.oneAPI.DpcppCppCompiler `
             --source winget `
             --accept-source-agreements `
             --accept-package-agreements `
             --silent
-          # winget does not add to PATH by default; we'll call setvars.bat later
           Write-Host "Intel compiler installation completed."
 
       - name: Build with ${{ matrix.compiler }}
