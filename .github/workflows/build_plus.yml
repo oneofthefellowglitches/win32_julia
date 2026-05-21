@@ -1,4 +1,4 @@
-name: Build Julia Set Animation
+name: Build Julia Set Animation ICX
 
 on:
   push:
