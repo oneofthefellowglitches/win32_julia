@@ -60,7 +60,7 @@ jobs:
       # ----- Intel Compiler setup (only for icx) -----
       - name: Install Intel oneAPI DPC++/C++ Compiler
         if: matrix.compiler == 'icx'
-        uses: intel/actions-setup-oneapi@v1          # Corrected action name
+        uses: intel/oneapi-setup-action@v1          # Correct official action
         with:
           components: 'intel-oneapi-compiler-dpcpp-cpp'
 
